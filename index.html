@@ -11,7 +11,17 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body class="gated">
+
+  <div id="auth-gate" class="auth-gate">
+    <div class="auth-card">
+      <div class="auth-logo">Z<span>.</span>Development</div>
+      <p class="auth-sub">Accès protégé — saisis ton code</p>
+      <input type="password" id="auth-input" placeholder="Code d'accès" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button class="btn primary" id="auth-btn">Entrer</button>
+      <div id="auth-error" class="auth-error"></div>
+    </div>
+  </div>
 
   <div id="overlay" class="overlay"></div>
 

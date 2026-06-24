@@ -24,7 +24,7 @@ const DEFAULT_SETTINGS = {
   },
 };
 
-const PREFIXES = { devis: "DEV", facture: "FAC", contrat: "CTR" };
+const PREFIXES = { devis: "DEV", facture: "FAC", contrat: "CTR", avoir: "AV" };
 
 // ---------- État en mémoire ----------
 let state = null;
@@ -156,15 +156,15 @@ function deleteDocument(id) {
 // ---------- Statistiques ----------
 function stats() {
   const docs = getState().documents;
-  const totalDevis = docs.filter((d) => d.type === "devis").reduce((t, d) => t + (d.montant || 0), 0);
-  const totalFacture = docs.filter((d) => d.type === "facture").reduce((t, d) => t + (d.montant || 0), 0);
-  const totalEncaisse = docs
-    .filter((d) => d.type === "facture" && d.statut === "payee")
-    .reduce((t, d) => t + (d.montant || 0), 0);
+  const somme = (type) => docs.filter((d) => d.type === type).reduce((t, d) => t + (d.montant || 0), 0);
+  const totalDevis = somme("devis");
+  const totalAvoir = somme("avoir");
+  // CA facturé net des avoirs (notes de crédit)
+  const totalFacture = somme("facture") - totalAvoir;
   const enAttente = docs
     .filter((d) => d.type === "facture" && d.statut !== "payee")
     .reduce((t, d) => t + (d.montant || 0), 0);
-  return { nb: docs.length, totalDevis, totalFacture, totalEncaisse, enAttente };
+  return { nb: docs.length, totalDevis, totalFacture, totalAvoir, enAttente };
 }
 
 // ---------- Export / Import (sauvegarde) ----------

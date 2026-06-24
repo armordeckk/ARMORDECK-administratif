@@ -347,15 +347,48 @@ function renderContrat(doc, s) {
   </div>`;
 }
 
+// ============================================================
+//  AVOIR (note de crédit)
+// ============================================================
+function renderAvoir(doc, s) {
+  const total = doc.lignes.reduce((t, l) => t + (Number(l.quantite) || 0) * (Number(l.prix) || 0), 0);
+  let info = `<strong>Date :</strong> ${fmtDate(doc.dateISO)}`;
+  if (doc.refFacture) info += `<br><strong>Réf. facture :</strong> ${esc(doc.refFacture)}`;
+  const motif = doc.motif
+    ? `<div class="section-block"><h3>Motif de l'avoir</h3><p>${nl2br(doc.motif)}</p></div>`
+    : "";
+  return `<div class="page">
+    ${headerHTML(s, "AVOIR", doc.numero, info)}
+    ${partiesHTML(s, doc.clientSnapshot, "Émetteur", "Client")}
+    ${motif}
+    <table class="items">
+      <thead><tr><th>Désignation</th><th class="center">Quantité</th><th class="right">Prix unitaire</th><th class="right">Total</th></tr></thead>
+      <tbody>${lignesHTML(doc.lignes)}</tbody>
+    </table>
+    <div class="totals"><div class="totals-box">
+      <div class="totals-row"><span>Sous-total</span><span class="amount">${fmtEur(total)}</span></div>
+      <div class="totals-row total"><span>MONTANT DE L'AVOIR</span><span class="amount">– ${fmtEur(total)}</span></div>
+    </div></div>
+    <div class="section-block highlight"><h3>Nature de l'avoir</h3>
+      <p>Le présent avoir ${doc.refFacture ? `annule ou réduit la facture <strong>${esc(doc.refFacture)}</strong>` : "constitue une note de crédit"} à hauteur de <strong>${fmtEur(total)}</strong>. Il vient en déduction des sommes dues par le Client ou donne lieu à remboursement selon accord entre les Parties.</p>
+    </div>
+    <div class="section-block"><h3>Mentions légales</h3>
+      <p>TVA non applicable, art. 293 B du CGI (auto-entrepreneur). Le présent avoir suit une numérotation séquentielle propre et est conservé au même titre que les factures.</p>
+    </div>
+    ${footerHTML(s, "Document généré le " + fmtDate(doc.dateISO), doc)}
+  </div>`;
+}
+
 // ---------- Aiguillage + document autonome ----------
 function renderDocBody(doc, s) {
   if (doc.type === "devis") return renderDevis(doc, s);
   if (doc.type === "facture") return renderFacture(doc, s);
+  if (doc.type === "avoir") return renderAvoir(doc, s);
   return renderContrat(doc, s);
 }
 
 function renderFullDocument(doc, s) {
-  const titres = { devis: "Devis", facture: "Facture", contrat: "Contrat" };
+  const titres = { devis: "Devis", facture: "Facture", contrat: "Contrat", avoir: "Avoir" };
   return `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">

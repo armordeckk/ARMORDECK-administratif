@@ -4,8 +4,8 @@
 const S = window.ZStore;
 const T = window.ZTemplates;
 
-const TYPE_LABEL = { devis: "Devis", facture: "Facture", contrat: "Contrat" };
-const TYPE_COLOR = { devis: "#3B82F6", facture: "#10B981", contrat: "#8B5CF6" };
+const TYPE_LABEL = { devis: "Devis", facture: "Facture", avoir: "Avoir", contrat: "Contrat" };
+const TYPE_COLOR = { devis: "#3B82F6", facture: "#10B981", avoir: "#EF4444", contrat: "#8B5CF6" };
 const PRESTATIONS_CONTRAT = [
   "Développement web sur-mesure",
   "Intégration API",
@@ -48,6 +48,39 @@ async function computeHash(doc) {
     }
   } catch (e) { /* fallback */ }
   return "fnv1a-" + fnv1a(payload);
+}
+
+// ---------- Code d'accès (empreinte, le code n'est pas en clair) ----------
+const AUTH_HASHES = [
+  "b597bb43328aa3dbc45fdf1704a0aec48f945a4f745494fe6fc15d48977e21a1",
+  "fnv1a-c9220cfa",
+];
+async function hashStr(str) {
+  try {
+    if (window.crypto && crypto.subtle) {
+      const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+      return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");
+    }
+  } catch (e) { /* fallback */ }
+  return "fnv1a-" + fnv1a(str);
+}
+async function tryAuth() {
+  const h = await hashStr(el("auth-input").value);
+  if (AUTH_HASHES.includes(h)) {
+    sessionStorage.setItem("zdev-auth", "ok");
+    document.body.classList.remove("gated");
+    el("auth-error").textContent = "";
+  } else {
+    el("auth-error").textContent = "Code incorrect.";
+    el("auth-input").value = "";
+    el("auth-input").focus();
+  }
+}
+function initAuth() {
+  if (sessionStorage.getItem("zdev-auth") === "ok") { document.body.classList.remove("gated"); return; }
+  el("auth-btn").onclick = tryAuth;
+  el("auth-input").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); tryAuth(); } });
+  setTimeout(() => el("auth-input").focus(), 50);
 }
 
 // ============================================================
@@ -96,10 +129,14 @@ function renderDashboard() {
     clientIds.forEach((cid) => {
       const cdocs = byClient[cid].slice().sort((a, b) => b.numero.localeCompare(a.numero));
       const client = S.getClient(cid) || { nom: cdocs[0].clientSnapshot.nom };
-      const caClient = cdocs.filter((d) => d.type === "facture").reduce((t, d) => t + (d.montant || 0), 0);
+      const caClient = cdocs.filter((d) => d.type === "facture").reduce((t, d) => t + (d.montant || 0), 0)
+        - cdocs.filter((d) => d.type === "avoir").reduce((t, d) => t + (d.montant || 0), 0);
       const rows = cdocs.map((d) => {
         const color = TYPE_COLOR[d.type];
-        const montant = d.type === "contrat" ? (d.montantTotal ? T.fmtEur(d.montantTotal) : "—") : T.fmtEur(d.montant || 0);
+        let montant;
+        if (d.type === "contrat") montant = d.montantTotal ? T.fmtEur(d.montantTotal) : "—";
+        else if (d.type === "avoir") montant = "– " + T.fmtEur(d.montant || 0);
+        else montant = T.fmtEur(d.montant || 0);
         const lock = d.locked ? ' <span title="Verrouillé">🔒</span>' : "";
         const statut = d.type === "facture"
           ? `<span class="pill ${d.statut === "payee" ? "paid" : "pending"}">${d.statut === "payee" ? "Payée" : "En attente"}</span>`
@@ -153,6 +190,7 @@ function defaultDraftFields() {
     numero: "", clientId: "",
     remise: 0,
     refDevis: "", echeanceJours: "", acompte: 0, statut: "en_attente",
+    refFacture: "", motif: "",
     clientType: "pro", prestations: [], montantTotal: 0, acomptePct: 50, delaiJours: 21,
     maint_enabled: false, maint_tarif: 25, maint_duree: 12, maint_offerts: 2,
     refDevisC: "", dateDevis: "", lieuSignature: "", dateSignature: "",
@@ -185,6 +223,10 @@ function openEditDraft(id) {
     draft.echeanceJours = doc.echeanceISO
       ? Math.round((new Date(doc.echeanceISO) - new Date(doc.dateISO)) / 864e5)
       : "";
+  }
+  if (doc.type === "avoir") {
+    draft.refFacture = doc.refFacture || "";
+    draft.motif = doc.motif || "";
   }
   if (doc.type === "contrat") {
     draft.clientType = doc.clientType || "pro";
@@ -233,6 +275,10 @@ function readFormIntoDraft() {
     if (el("f-echeance")) draft.echeanceJours = el("f-echeance").value;
     if (el("f-acompte")) draft.acompte = el("f-acompte").value;
     if (el("f-statut")) draft.statut = el("f-statut").value;
+  }
+  if (draftType === "avoir") {
+    if (el("f-reffacture")) draft.refFacture = el("f-reffacture").value;
+    if (el("f-motif")) draft.motif = el("f-motif").value;
   }
   if (draftType === "contrat") {
     const ctype = document.querySelector('input[name="ctype"]:checked');
@@ -318,7 +364,7 @@ function contratFieldsHTML() {
 
 function renderNouveau() {
   const enEdition = !!editingId;
-  const typeBtns = ["devis", "facture", "contrat"].map((t) =>
+  const typeBtns = ["devis", "facture", "avoir", "contrat"].map((t) =>
     `<button class="type-btn ${draftType === t ? "active" : ""}" data-act="set-type" data-type="${t}" style="--c:${TYPE_COLOR[t]}" ${enEdition ? "disabled" : ""}>${TYPE_LABEL[t]}</button>`
   ).join("");
 
@@ -329,6 +375,19 @@ function renderNouveau() {
     let specifique = "";
     if (draftType === "devis") {
       specifique = `<div class="field"><label>Remise éventuelle (€)</label><input type="text" inputmode="decimal" id="f-remise" class="num" value="${parseNum(draft.remise)}"></div>`;
+    } else if (draftType === "avoir") {
+      const factOpts = S.getDocuments()
+        .filter((d) => d.type === "facture")
+        .sort((a, b) => b.numero.localeCompare(a.numero))
+        .map((f) => `<option value="${T.esc(f.numero)}" ${draft.refFacture === f.numero ? "selected" : ""}>${T.esc(f.numero)} — ${T.esc(f.clientSnapshot.nom)}</option>`)
+        .join("");
+      specifique = `
+        <div class="field"><label>Facture concernée</label>
+          <select id="f-reffacture"><option value="">— Aucune —</option>${factOpts}</select>
+        </div>
+        <div class="field"><label>Motif de l'avoir</label>
+          <textarea id="f-motif" rows="3" placeholder="ex : Annulation de la prestation, geste commercial, erreur de facturation…">${T.esc(draft.motif)}</textarea>
+        </div>`;
     } else {
       specifique = `
         <div class="grid-2">
@@ -520,6 +579,10 @@ function genererDocument() {
       if (jours > 0) { const ech = new Date(now.getTime()); ech.setDate(ech.getDate() + jours); doc.echeanceISO = ech.toISOString(); }
     }
     doc.montant = lignes.reduce((t, l) => t + l.quantite * l.prix, 0) - doc.acompte;
+  } else if (draftType === "avoir") {
+    doc.refFacture = (draft.refFacture || "").trim();
+    doc.motif = (draft.motif || "").trim();
+    doc.montant = lignes.reduce((t, l) => t + l.quantite * l.prix, 0);
   } else {
     doc.clientType = draft.clientType;
     doc.prestations = draft.prestations.slice();
@@ -804,4 +867,5 @@ window.addEventListener("DOMContentLoaded", () => {
   el("menu-btn").onclick = toggleSidebar;
   el("overlay").onclick = closeSidebar;
   router();
+  initAuth();
 });
