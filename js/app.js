@@ -486,8 +486,8 @@ function renderClients() {
 function openClientModal(client) {
   const c = client || { nom: "", siret: "", adresse: "", cp_ville: "", email: "", tel: "" };
   el("modal-root").innerHTML = `
-    <div class="modal-overlay" data-act="close-modal">
-      <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-overlay">
+      <div class="modal">
         <h2>${client ? "Modifier le client" : "Nouveau client"}</h2>
         <div class="grid-2">
           <div class="field"><label>Nom / Société *</label><input type="text" id="m-nom" value="${T.esc(c.nom)}"></div>
@@ -505,6 +505,8 @@ function openClientModal(client) {
     </div>`;
 
   el("modal-root").onclick = (e) => {
+    // Clic sur le fond (hors de la fenêtre) = fermer
+    if (e.target.classList.contains("modal-overlay")) { el("modal-root").innerHTML = ""; return; }
     const btn = e.target.closest("[data-act]");
     if (!btn) return;
     if (btn.dataset.act === "close-modal") el("modal-root").innerHTML = "";
