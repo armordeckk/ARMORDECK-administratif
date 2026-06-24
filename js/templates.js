@@ -262,18 +262,10 @@ function renderFacture(doc, s) {
       ${acompteRow}
       <div class="totals-row total"><span>NET À PAYER</span><span class="amount">${fmtEur(net)}</span></div>
     </div></div>
-    <div class="payment-section">
-      <div class="section-block highlight"><h3>Coordonnées bancaires</h3>
-        <p>Virement à l'ordre de <strong>${esc(s.emetteur.nom)}</strong></p>
-        <div class="iban">${esc(s.emetteur.iban)}</div><br>
-        <p style="margin-top:6px;">BIC : ${esc(s.emetteur.bic)} (${esc(s.emetteur.banque)})</p>
-      </div>
-      <div class="section-block"><h3>Conditions de paiement</h3><ul>
-        <li>Paiement à 30 jours date de facture</li>
-        <li>Aucun escompte pour paiement anticipé</li>
-        <li>Pénalité de retard : 10 % annuel</li>
-        <li>Indemnité forfaitaire : 40 €</li>
-      </ul></div>
+    <div class="section-block highlight"><h3>Coordonnées bancaires</h3>
+      <p>Virement à l'ordre de <strong>${esc(s.emetteur.nom)}</strong></p>
+      <div class="iban">${esc(s.emetteur.iban)}</div><br>
+      <p style="margin-top:6px;">BIC : ${esc(s.emetteur.bic)} (${esc(s.emetteur.banque)})</p>
     </div>
     <div class="section-block"><h3>Mentions légales</h3>
       <p>TVA non applicable, art. 293 B du CGI (auto-entrepreneur). En cas de retard de paiement, conformément aux articles L441-10 et D441-5 du Code de commerce, des pénalités de retard au taux annuel de 10 % seront appliquées, ainsi qu'une indemnité forfaitaire pour frais de recouvrement de 40 €.</p>
