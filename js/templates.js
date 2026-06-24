@@ -248,7 +248,9 @@ function renderFacture(doc, s) {
     ? `<div class="totals-row"><span>Acompte versé</span><span class="amount">– ${fmtEur(acompte)}</span></div>`
     : "";
   const badge = doc.statut === "payee" ? `<div class="status-badge">PAYÉE</div>` : "";
-  const info = `<strong>Date :</strong> ${fmtDate(doc.dateISO)}<br><strong>Échéance :</strong> ${fmtDate(doc.echeanceISO)}<br><strong>Réf. devis :</strong> ${esc(doc.refDevis || "—")}`;
+  let info = `<strong>Date :</strong> ${fmtDate(doc.dateISO)}`;
+  if (doc.echeanceISO) info += `<br><strong>Échéance :</strong> ${fmtDate(doc.echeanceISO)}`;
+  if (doc.refDevis) info += `<br><strong>Réf. devis :</strong> ${esc(doc.refDevis)}`;
   return `<div class="page">
     ${badge}
     ${headerHTML(s, "FACTURE", doc.numero, info)}

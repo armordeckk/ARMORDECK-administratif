@@ -111,14 +111,20 @@ function clientHasDocs(id) {
 
 // ---------- Compteurs / numérotation ----------
 function nextNumero(type) {
-  const s = getState();
   const annee = String(new Date().getFullYear());
   const prefixe = PREFIXES[type];
-  if (!s.counters[annee]) s.counters[annee] = {};
-  const n = (s.counters[annee][prefixe] || 0) + 1;
-  s.counters[annee][prefixe] = n;
-  save();
-  return `${prefixe}-${annee}-${String(n).padStart(3, "0")}`;
+  // Numéro = (plus grand numéro existant de ce type/année) + 1.
+  // Si tu supprimes les derniers documents, les numéros se réutilisent
+  // automatiquement (plus de "trou" qui grimpe à l'infini).
+  let max = 0;
+  for (const d of getState().documents) {
+    const m = /^([A-Z]+)-(\d{4})-(\d+)$/.exec(d.numero || "");
+    if (m && m[1] === prefixe && m[2] === annee) {
+      const n = parseInt(m[3], 10);
+      if (n > max) max = n;
+    }
+  }
+  return `${prefixe}-${annee}-${String(max + 1).padStart(3, "0")}`;
 }
 
 // ---------- Documents ----------

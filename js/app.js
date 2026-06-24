@@ -174,8 +174,8 @@ function renderNouveau() {
   } else if (draftType === "facture") {
     specifique = `
       <div class="grid-2">
-        <div class="field"><label>Référence du devis</label><input type="text" id="f-refdevis" placeholder="DEV-2026-001"></div>
-        <div class="field"><label>Échéance (jours)</label><input type="text" inputmode="numeric" id="f-echeance" class="num" value="30"></div>
+        <div class="field"><label>Référence du devis (optionnel)</label><input type="text" id="f-refdevis" placeholder="laisser vide si aucun"></div>
+        <div class="field"><label>Échéance en jours (optionnel)</label><input type="text" inputmode="numeric" id="f-echeance" class="num" placeholder="laisser vide si aucune"></div>
         <div class="field"><label>Acompte déjà versé (€)</label><input type="text" inputmode="decimal" id="f-acompte" class="num" value="0"></div>
         <div class="field"><label>Statut</label><select id="f-statut"><option value="en_attente">En attente</option><option value="payee">Payée</option></select></div>
       </div>`;
@@ -228,6 +228,7 @@ function renderNouveau() {
 
     <div class="card">
       <div class="card-title">Détails</div>
+      <div class="field"><label>Numéro du document</label><input type="text" id="f-numero" value="${T.esc(S.nextNumero(draftType))}"></div>
       ${specifique}
     </div>
 
@@ -330,11 +331,18 @@ function genererDocument() {
     if (lignes.length === 0) { toast("Ajoute au moins une ligne de prestation."); return; }
   }
 
-  // 3. Construction du document
+  // 3. Numéro (éditable, avec contrôle anti-doublon)
+  const numero = (el("f-numero") ? el("f-numero").value.trim() : "") || S.nextNumero(draftType);
+  if (S.getDocuments().some((d) => d.numero === numero)) {
+    toast("Le numéro " + numero + " existe déjà. Choisis-en un autre.");
+    return;
+  }
+
+  // 4. Construction du document
   const now = new Date();
   const doc = {
     type: draftType,
-    numero: S.nextNumero(draftType),
+    numero,
     clientId,
     clientSnapshot: {
       nom: client.nom, siret: client.siret, adresse: client.adresse,
@@ -352,10 +360,15 @@ function genererDocument() {
     doc.refDevis = el("f-refdevis").value.trim();
     doc.acompte = parseNum(el("f-acompte").value);
     doc.statut = el("f-statut").value;
-    const jours = parseInt(parseNum(el("f-echeance").value)) || 30;
-    const ech = new Date(now.getTime());
-    ech.setDate(ech.getDate() + jours);
-    doc.echeanceISO = ech.toISOString();
+    const echRaw = el("f-echeance").value.trim();
+    if (echRaw) {
+      const jours = parseInt(parseNum(echRaw)) || 0;
+      if (jours > 0) {
+        const ech = new Date(now.getTime());
+        ech.setDate(ech.getDate() + jours);
+        doc.echeanceISO = ech.toISOString();
+      }
+    }
     const sous = lignes.reduce((t, l) => t + l.quantite * l.prix, 0);
     doc.montant = sous - doc.acompte;
   } else {
