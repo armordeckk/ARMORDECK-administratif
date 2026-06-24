@@ -13,7 +13,6 @@ function fmtQte(q) {
   return Number.isInteger(n) ? String(n) : n.toLocaleString("fr-FR", { maximumFractionDigits: 2 });
 }
 function fmtDate(d) {
-  // d : objet Date ou chaîne ISO
   const date = (d instanceof Date) ? d : new Date(d);
   return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
@@ -27,23 +26,19 @@ function nl2br(s) {
   return esc(s).replace(/\n/g, "<br>");
 }
 
-// ---------- Bloc "infos émetteur" / "infos client" ----------
+// ---------- Blocs infos ----------
 function emetteurInfoHTML(s) {
   const e = s.emetteur;
-  const lignes = [
-    esc(e.entreprise),
-    esc(e.adresse),
-    esc(e.cp_ville),
+  return [
+    esc(e.entreprise), esc(e.adresse), esc(e.cp_ville),
     e.siret ? "SIRET : " + esc(e.siret) : "",
     e.email ? "Email : " + esc(e.email) : "",
     e.tel ? "Tél : " + esc(e.tel) : "",
-  ].filter(Boolean);
-  return lignes.join("<br>");
+  ].filter(Boolean).join("<br>");
 }
 function clientInfoHTML(c) {
   const lignes = [
-    esc(c.adresse),
-    esc(c.cp_ville),
+    esc(c.adresse), esc(c.cp_ville),
     c.siret ? "SIRET : " + esc(c.siret) : "",
     c.email ? "Email : " + esc(c.email) : "",
     c.tel ? "Tél : " + esc(c.tel) : "",
@@ -56,13 +51,9 @@ function lignesHTML(lignes) {
   return lignes
     .map((l) => {
       const total = (Number(l.quantite) || 0) * (Number(l.prix) || 0);
-      const desc = l.description
-        ? `<div class="item-desc">${nl2br(l.description)}</div>`
-        : "";
+      const desc = l.description ? `<div class="item-desc">${nl2br(l.description)}</div>` : "";
       return `<tr>
-        <td>
-          <div class="item-name">${esc(l.designation)}</div>${desc}
-        </td>
+        <td><div class="item-name">${esc(l.designation)}</div>${desc}</td>
         <td class="center">${fmtQte(l.quantite)}</td>
         <td class="right">${fmtEur(l.prix)}</td>
         <td class="right amount">${fmtEur(total)}</td>
@@ -72,7 +63,7 @@ function lignesHTML(lignes) {
 }
 
 // ============================================================
-//  CSS partagé des documents (identique aux templates HTML)
+//  CSS partagé des documents
 // ============================================================
 const DOC_CSS = `
   :root{--primary:#0F172A;--accent:#3B82F6;--success:#10B981;--text:#334155;--text-light:#64748B;--text-muted:#94A3B8;--border:#E2E8F0;--bg-soft:#F8FAFC;}
@@ -109,7 +100,6 @@ const DOC_CSS = `
   .totals-row.total{background:var(--primary);color:#fff;font-size:1.1rem;font-weight:700;padding:16px;border-radius:6px;margin-top:8px;}
   .totals-row.total .amount{color:#fff;}
   .amount{font-weight:600;color:var(--primary);}
-  .payment-section{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;}
   .section-block{padding:20px 24px;background:var(--bg-soft);border-radius:8px;margin-bottom:24px;}
   .section-block.highlight{background:rgba(59,130,246,.05);border-left:3px solid var(--accent);}
   .section-block h3{font-size:.78rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--primary);margin-bottom:10px;}
@@ -144,15 +134,16 @@ const DOC_CSS = `
   .sig-mention{font-size:.75rem;color:var(--text-muted);font-style:italic;margin-top:6px;}
   .sig-place-date{margin-top:12px;font-size:.78rem;color:var(--text-muted);}
   .doc-footer{margin-top:48px;padding-top:20px;border-top:1px solid var(--border);text-align:center;font-size:.72rem;color:var(--text-muted);line-height:1.7;}
+  .doc-lock{margin-top:6px;color:var(--success);font-weight:600;word-break:break-all;}
   .print-bar{max-width:820px;margin:0 auto 16px;display:flex;justify-content:flex-end;gap:8px;}
   .print-btn{background:var(--accent);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;}
   .print-btn:hover{background:#2563EB;}
   .print-btn.outline{background:#fff;color:var(--primary);border:1px solid var(--border);}
   @media print{body{background:#fff;padding:0;}.page{box-shadow:none;padding:24mm 18mm;max-width:100%;border-radius:0;}.no-print{display:none;}.article,.signatures{page-break-inside:avoid;break-inside:avoid;}}
-  @media (max-width:640px){body{padding:16px 8px;}.page{padding:32px 24px;}.parties,.payment-section,.signature,.signatures{grid-template-columns:1fr;gap:16px;}.header{flex-direction:column;gap:16px;}.doc-meta{text-align:left;}.status-badge{position:static;transform:none;margin-bottom:16px;display:inline-block;}}
+  @media (max-width:640px){body{padding:16px 8px;}.page{padding:32px 24px;}.parties,.signature,.signatures{grid-template-columns:1fr;gap:16px;}.header{flex-direction:column;gap:16px;}.doc-meta{text-align:left;}.status-badge{position:static;transform:none;margin-bottom:16px;display:inline-block;}}
 `;
 
-// ---------- En-tête commun ----------
+// ---------- En-tête / parties / pied de page ----------
 function headerHTML(s, titre, numero, infoLines, titleSmall) {
   return `<div class="header">
     <div>
@@ -187,10 +178,13 @@ function partiesHTML(s, client, labelEmetteur, labelClient, calledAs) {
   </div>`;
 }
 
-function footerHTML(s, extra) {
+function footerHTML(s, extra, doc) {
+  const lock = (doc && doc.locked)
+    ? `<div class="doc-lock">🔒 Document verrouillé le ${esc(doc.lockedAt || "")} — empreinte SHA-256 : ${esc(doc.hash || "")}</div>`
+    : "";
   return `<div class="doc-footer">
     ${esc(s.emetteur.entreprise)} — ${esc(s.emetteur.nom)} — SIRET ${esc(s.emetteur.siret)} — Cogolin (83), France<br>
-    ${extra}
+    ${extra}${lock}
   </div>`;
 }
 
@@ -201,9 +195,7 @@ function renderDevis(doc, s) {
   const sousTotal = doc.lignes.reduce((t, l) => t + (Number(l.quantite) || 0) * (Number(l.prix) || 0), 0);
   const remise = Number(doc.remise) || 0;
   const total = sousTotal - remise;
-  const remiseRow = remise
-    ? `<div class="totals-row"><span>Remise</span><span class="amount">– ${fmtEur(remise)}</span></div>`
-    : "";
+  const remiseRow = remise ? `<div class="totals-row"><span>Remise</span><span class="amount">– ${fmtEur(remise)}</span></div>` : "";
   const info = `<strong>Date d'émission :</strong> ${fmtDate(doc.dateISO)}<br><strong>Validité :</strong> 30 jours`;
   return `<div class="page">
     ${headerHTML(s, "DEVIS", doc.numero, info)}
@@ -233,7 +225,7 @@ function renderDevis(doc, s) {
       <div class="sig-box"><strong>Bon pour accord</strong>Date :<br>Signature précédée de la mention « Lu et approuvé »<div class="sig-line"></div></div>
       <div class="sig-box"><strong>L'émetteur</strong>${esc(s.emetteur.nom)}<br>${esc(s.emetteur.entreprise)}<div class="sig-line"></div></div>
     </div>
-    ${footerHTML(s, "Document généré le " + fmtDate(doc.dateISO) + " · " + esc(s.emetteur.email))}
+    ${footerHTML(s, "Document généré le " + fmtDate(doc.dateISO) + " · " + esc(s.emetteur.email), doc)}
   </div>`;
 }
 
@@ -244,9 +236,7 @@ function renderFacture(doc, s) {
   const sousTotal = doc.lignes.reduce((t, l) => t + (Number(l.quantite) || 0) * (Number(l.prix) || 0), 0);
   const acompte = Number(doc.acompte) || 0;
   const net = sousTotal - acompte;
-  const acompteRow = acompte
-    ? `<div class="totals-row"><span>Acompte versé</span><span class="amount">– ${fmtEur(acompte)}</span></div>`
-    : "";
+  const acompteRow = acompte ? `<div class="totals-row"><span>Acompte versé</span><span class="amount">– ${fmtEur(acompte)}</span></div>` : "";
   const badge = doc.statut === "payee" ? `<div class="status-badge">PAYÉE</div>` : "";
   let info = `<strong>Date :</strong> ${fmtDate(doc.dateISO)}`;
   if (doc.echeanceISO) info += `<br><strong>Échéance :</strong> ${fmtDate(doc.echeanceISO)}`;
@@ -275,56 +265,95 @@ function renderFacture(doc, s) {
     <div class="thanks"><div class="thanks-title">Merci pour votre confiance 🙏</div>
       <div class="thanks-text">N'hésitez pas à me contacter pour toute question concernant cette facture.<br>${esc(s.emetteur.email)}</div>
     </div>
-    ${footerHTML(s, "Document généré le " + fmtDate(doc.dateISO))}
+    ${footerHTML(s, "Document généré le " + fmtDate(doc.dateISO), doc)}
   </div>`;
 }
 
 // ============================================================
-//  CONTRAT
+//  CONTRAT (articles dynamiques)
 // ============================================================
 function renderContrat(doc, s) {
-  const info = `<strong>Date :</strong> ${fmtDate(doc.dateISO)}<br><strong>Lieu :</strong> Cogolin (83)`;
   const A = (num, titre, contenu) =>
     `<div class="article"><div class="article-title"><span class="article-num">ARTICLE ${num}</span><span>${titre}</span></div><div class="article-content">${contenu}</div></div>`;
+
+  const info = `<strong>Date :</strong> ${fmtDate(doc.dateISO)}<br><strong>Lieu :</strong> Cogolin (83)`;
+  const isPro = doc.clientType !== "particulier";
+  const total = Number(doc.montantTotal) || 0;
+  const acomptePct = (doc.acomptePct == null ? 50 : Number(doc.acomptePct));
+  const soldePct = 100 - acomptePct;
+  const acompte = total * acomptePct / 100;
+  const solde = total - acompte;
+  const delai = Number(doc.delaiJours) || 0;
+  const m = doc.maintenance || { enabled: false };
+  const moisFactures = Math.max(0, (Number(m.duree) || 0) - (Number(m.moisOfferts) || 0));
+
+  const devisLine = doc.refDevis
+    ? `Les Parties ont, suite à l'acceptation du devis n° <strong>${esc(doc.refDevis)}</strong>${doc.dateDevis ? ` en date du ${esc(doc.dateDevis)}` : ""}, décidé de formaliser leurs engagements par le présent contrat.`
+    : `Les Parties ont décidé de formaliser leurs engagements par le présent contrat, dont l'objet et les conditions sont définis ci-après.`;
+
+  const prestSel = (doc.prestations && doc.prestations.length)
+    ? doc.prestations.slice()
+    : ["Conception et développement du site selon le cahier des charges convenu"];
+  let prestLis = prestSel.map((p) => `<li><strong>${esc(p)}</strong></li>`).join("");
+  if (m.enabled) prestLis += `<li><strong>Maintenance et hébergement</strong> du site (voir article 11)</li>`;
+  const art2 = `<p>Le Prestataire s'engage à fournir les prestations suivantes :</p><ul>${prestLis}</ul><p>Toute prestation supplémentaire non prévue fera l'objet d'un avenant ou d'un devis complémentaire.</p>`;
+
+  const art3 = m.enabled
+    ? `<p>Le présent contrat prend effet à compter de la signature et de la réception de l'acompte.</p><p>Un <strong>forfait de maintenance</strong> est souscrit pour une durée de <strong>${Number(m.duree) || 0} mois</strong>${(Number(m.moisOfferts) || 0) > 0 ? `, dont <strong>${Number(m.moisOfferts)} mois offerts</strong>` : ""}. À l'issue de cette période initiale, il est reconductible et résiliable par chacune des Parties avec un préavis de <strong>30 jours</strong>.</p>`
+    : `<p>Le présent contrat prend effet à compter de la signature et de la réception de l'acompte. Il prend fin à la livraison du site. Aucun forfait de maintenance n'est souscrit au titre du présent contrat.</p>`;
+
+  const penalites = isPro
+    ? `<p>En cas de retard de paiement, des pénalités de retard au taux annuel de <strong>10 %</strong> seront appliquées de plein droit, ainsi qu'une indemnité forfaitaire pour frais de recouvrement de <strong>40 €</strong> (articles L441-10 et D441-5 du Code de commerce).</p>`
+    : "";
+  const art4 = `<p>Le prix total des prestations s'élève à <strong>${fmtEur(total)}</strong>. <strong>TVA non applicable</strong>, art. 293 B du CGI (auto-entrepreneur).</p><p>Les modalités de paiement sont les suivantes :</p><ul><li><strong>${acomptePct} %</strong> à la signature (acompte) : <strong>${fmtEur(acompte)}</strong></li><li><strong>${soldePct} %</strong> à la livraison (solde) : <strong>${fmtEur(solde)}</strong></li></ul><p>Le paiement s'effectue par virement bancaire sur le compte indiqué sur la facture.</p>${penalites}`;
+
+  const art5 = `<p>Le Prestataire s'engage à livrer le site dans un délai de <strong>${delai} jours ouvrés</strong> à compter de la réception de l'acompte et de l'ensemble des contenus du Client (textes, photos, logos, accès).</p><p>Tout retard imputable au Client (fourniture des contenus, validation) prolonge le délai de livraison d'autant.</p>`;
+
+  const art11 = m.enabled
+    ? `<p>Le Client a souscrit au forfait de maintenance. À ce titre, le Prestataire assure :</p><ul><li>L'hébergement du site sur une infrastructure sécurisée</li><li>Le renouvellement du nom de domaine et du certificat SSL</li><li>Les mises à jour techniques et correctifs de sécurité</li><li>Les sauvegardes régulières (hebdomadaires minimum)</li><li>Les modifications mineures selon le forfait</li></ul><p>Tarif : <strong>${fmtEur(m.tarif)} / mois</strong>${(Number(m.moisOfferts) || 0) > 0 ? `, dont ${Number(m.moisOfferts)} mois offerts` : ""}, soit <strong>${moisFactures} mois facturés</strong> sur ${Number(m.duree) || 0} (<strong>${fmtEur(moisFactures * (Number(m.tarif) || 0))}</strong>).</p><p>Le Prestataire ne peut garantir une disponibilité de 100 % en raison d'opérations de maintenance ou de causes extérieures (panne d'hébergeur, attaque, etc.).</p>`
+    : `<p>Aucun forfait de maintenance n'est souscrit dans le cadre du présent contrat. Le Client pourra y souscrire ultérieurement par avenant.</p>`;
+
+  const lieuCl = doc.lieuSignature ? esc(doc.lieuSignature) : "__________";
+  const dateSig = doc.dateSignature ? esc(doc.dateSignature) : "___/___/______";
+
   return `<div class="page">
     ${headerHTML(s, "Contrat de<br>prestation", doc.numero, info, true)}
     ${partiesHTML(s, doc.clientSnapshot, "Le Prestataire", "Le Client", true)}
     <div class="preamble"><h2>Préambule</h2>
       <p>Le Prestataire exerce une activité de création de sites web professionnels (sites vitrines, sites avec réservation, sites e-commerce) ainsi que de maintenance et d'hébergement de sites internet.</p>
-      <p>Le Client souhaite confier au Prestataire la réalisation d'un site web décrit ci-après, ainsi qu'éventuellement les services de maintenance associés.</p>
-      <p>Les Parties ont, suite à des échanges préalables et acceptation du devis n° <strong>${esc(doc.refDevis || "—")}</strong> en date du ${esc(doc.dateDevis || fmtDate(doc.dateISO))}, décidé de formaliser leurs engagements par le présent contrat.</p>
+      <p>Le Client souhaite confier au Prestataire la réalisation d'un site web décrit ci-après.</p>
+      <p>${devisLine}</p>
     </div>
-    ${A(1, "Objet du contrat", `<p>Le présent contrat a pour objet de définir les conditions dans lesquelles le Prestataire réalisera, pour le compte du Client, la <strong>création d'un site internet</strong> ainsi que, le cas échéant, les services connexes de mise en ligne, hébergement et maintenance.</p><p>Le détail des prestations, livrables et tarifs est annexé au devis accepté par le Client, qui fait partie intégrante du présent contrat.</p>`)}
-    ${A(2, "Description des prestations", `<p>Le Prestataire s'engage à fournir les prestations suivantes :</p><ul><li><strong>Conception et développement</strong> du site selon le cahier des charges convenu</li><li><strong>Design graphique</strong> sur mesure, adapté à l'identité du Client</li><li><strong>Intégration responsive</strong> (compatibilité mobile, tablette, desktop)</li><li><strong>Mise en ligne</strong> sur le nom de domaine choisi par le Client</li><li><strong>Configuration</strong> de l'hébergement et du certificat SSL</li><li><strong>Optimisation SEO</strong> de base (balises, structure, vitesse)</li><li><strong>Formation à l'utilisation</strong> si nécessaire (modifications simples)</li></ul><p>Toute prestation supplémentaire non prévue au devis fera l'objet d'un avenant ou d'un devis complémentaire.</p>`)}
-    ${A(3, "Durée du contrat", `<p>Le présent contrat prend effet à compter de la signature et de la réception de l'acompte. Il prend fin à la livraison du site, sauf souscription d'un forfait de maintenance qui le prolongera selon les modalités convenues.</p><p>Le forfait de maintenance, s'il est souscrit, est conclu pour une durée initiale d'un (1) mois, reconductible tacitement, et résiliable à tout moment avec un préavis de <strong>30 jours</strong>.</p>`)}
-    ${A(4, "Conditions financières", `<p>Le prix total des prestations est défini dans le devis accepté. Sauf accord contraire, les modalités de paiement sont les suivantes :</p><ul><li><strong>50 %</strong> à la signature du contrat (acompte)</li><li><strong>50 %</strong> à la livraison du site</li></ul><p>Le paiement s'effectue par virement bancaire sur le compte indiqué sur la facture. <strong>TVA non applicable</strong>, art. 293 B du CGI (auto-entrepreneur).</p><p>En cas de retard de paiement, des pénalités de retard au taux annuel de <strong>10 %</strong> seront appliquées de plein droit, ainsi qu'une indemnité forfaitaire pour frais de recouvrement de <strong>40 €</strong> (articles L441-10 et D441-5 du Code de commerce).</p>`)}
-    ${A(5, "Délai de livraison", `<p>Le Prestataire s'engage à livrer le site dans un délai de <strong>[7 à 21] jours ouvrés</strong> à compter de la réception de l'acompte et de l'ensemble des contenus du Client (textes, photos, logos, accès).</p><p>Tout retard imputable au Client (retard dans la fourniture des contenus, retard de validation) prolonge le délai de livraison de la durée correspondante.</p>`)}
-    ${A(6, "Obligations du Client", `<p>Le Client s'engage à :</p><ul><li>Fournir l'ensemble des contenus nécessaires (textes, images, logos) dans des délais raisonnables</li><li>Garantir qu'il dispose des droits sur les contenus fournis</li><li>Valider chaque étape du projet dans un délai de 7 jours</li><li>Respecter les conditions de paiement convenues</li><li>Ne pas tenir le Prestataire responsable de l'exactitude des contenus fournis</li></ul>`)}
-    ${A(7, "Recette et validation", `<p>À la livraison, le Client dispose d'un délai de <strong>7 jours</strong> pour vérifier la conformité du site et formuler ses observations par écrit.</p><p>Passé ce délai sans observation, le site est réputé accepté définitivement et le solde devient exigible.</p><p>Toute demande de modification après acceptation fera l'objet d'une facturation complémentaire ou sera intégrée au forfait de maintenance.</p>`)}
-    ${A(8, "Propriété intellectuelle", `<p>Sous réserve du <strong>paiement intégral</strong> du prix, le Prestataire cède au Client les droits d'utilisation, de reproduction et de modification du site livré, pour une durée illimitée et pour un usage commercial.</p><p>Le Prestataire conserve néanmoins le droit de mentionner la réalisation dans son portfolio et ses supports de communication, sauf demande contraire écrite du Client.</p><p>Les outils, frameworks et bibliothèques tierces utilisés restent la propriété de leurs auteurs respectifs et sont soumis à leurs propres licences.</p>`)}
-    ${A(9, "Confidentialité", `<p>Chacune des Parties s'engage à conserver confidentielles toutes informations, documents ou données dont elle aurait connaissance dans le cadre de l'exécution du présent contrat.</p><p>Cette obligation perdure pendant toute la durée du contrat et pour une durée de <strong>2 ans</strong> après son terme.</p>`)}
-    ${A(10, "Données personnelles & RGPD", `<p>Le Prestataire s'engage à respecter le Règlement Général sur la Protection des Données (RGPD) dans le cadre de ses prestations.</p><p>Les données personnelles éventuellement collectées via le site (formulaire de contact, espace client) sont traitées sous la responsabilité du <strong>Client</strong>, qui agit en qualité de responsable de traitement. Le Prestataire intervient comme sous-traitant au sens du RGPD.</p><p>Le Prestataire met en œuvre les mesures techniques et organisationnelles appropriées (HTTPS, hébergement sécurisé, sauvegardes) pour garantir la sécurité des données.</p>`)}
-    ${A(11, "Hébergement et maintenance", `<p>Si le Client souscrit au forfait maintenance, le Prestataire assure :</p><ul><li>L'hébergement du site sur une infrastructure sécurisée</li><li>Le renouvellement du nom de domaine et du certificat SSL</li><li>Les mises à jour techniques et correctifs de sécurité</li><li>Les sauvegardes régulières (hebdomadaires minimum)</li><li>Les modifications mineures selon le forfait choisi</li></ul><p>Le Prestataire ne peut garantir une disponibilité de 100 % en raison d'opérations de maintenance ou de causes extérieures (panne du fournisseur d'hébergement, attaque, etc.).</p>`)}
-    ${A(12, "Responsabilité", `<p>Le Prestataire est tenu d'une obligation de moyens et non de résultat. Il s'engage à apporter tout le soin et la diligence nécessaires à l'exécution des prestations.</p><p>La responsabilité du Prestataire ne pourra en aucun cas excéder le montant total des sommes versées par le Client au titre du contrat.</p><p>Le Prestataire ne peut être tenu responsable des dommages indirects (perte d'exploitation, perte de chiffre d'affaires, atteinte à l'image).</p>`)}
-    ${A(13, "Résiliation", `<p><strong>Résiliation pour faute :</strong> en cas de manquement grave de l'une des Parties, l'autre Partie pourra résilier le contrat de plein droit après mise en demeure restée sans effet pendant <strong>15 jours</strong>.</p><p><strong>Résiliation du forfait maintenance :</strong> chacune des Parties peut résilier à tout moment, par écrit, avec un préavis de <strong>30 jours</strong>. Aucun remboursement ne sera dû pour le mois en cours.</p><p>En cas de résiliation avant livraison du site, l'acompte versé reste acquis au Prestataire à titre de dédommagement pour le travail réalisé.</p>`)}
-    ${A(14, "Force majeure", `<p>Aucune des Parties ne pourra être tenue responsable de l'inexécution de ses obligations en cas de force majeure au sens de l'article 1218 du Code civil (catastrophe naturelle, panne d'infrastructure majeure, décision gouvernementale, etc.).</p>`)}
-    ${A(15, "Droit applicable & juridiction", `<p>Le présent contrat est soumis au <strong>droit français</strong>.</p><p>En cas de litige, les Parties s'efforceront de trouver une solution amiable. À défaut, le litige sera porté devant les tribunaux compétents du ressort de <strong>Toulon (83)</strong>, sauf disposition légale impérative contraire (notamment lorsque le Client est un consommateur).</p>`)}
+    ${A(1, "Objet du contrat", `<p>Le présent contrat a pour objet de définir les conditions dans lesquelles le Prestataire réalisera, pour le compte du Client, la <strong>création d'un site internet</strong> ainsi que, le cas échéant, les services connexes de mise en ligne, hébergement et maintenance.</p>`)}
+    ${A(2, "Description des prestations", art2)}
+    ${A(3, "Durée du contrat", art3)}
+    ${A(4, "Conditions financières", art4)}
+    ${A(5, "Délai de livraison", art5)}
+    ${A(6, "Obligations du Client", `<p>Le Client s'engage à :</p><ul><li>Fournir l'ensemble des contenus nécessaires (textes, images, logos) dans des délais raisonnables</li><li>Garantir qu'il dispose des droits sur les contenus fournis</li><li>Valider chaque étape du projet dans un délai de 7 jours</li><li>Respecter les conditions de paiement convenues</li></ul>`)}
+    ${A(7, "Recette et validation", `<p>À la livraison, le Client dispose d'un délai de <strong>7 jours</strong> pour vérifier la conformité du site et formuler ses observations par écrit.</p><p>Passé ce délai sans observation, le site est réputé accepté définitivement et le solde devient exigible.</p>`)}
+    ${A(8, "Propriété intellectuelle", `<p>Sous réserve du <strong>paiement intégral</strong> du prix, le Prestataire cède au Client les droits d'utilisation, de reproduction et de modification du site livré, pour une durée illimitée et pour un usage commercial.</p><p>Le Prestataire conserve le droit de mentionner la réalisation dans son portfolio, sauf demande contraire écrite du Client.</p>`)}
+    ${A(9, "Confidentialité", `<p>Chacune des Parties s'engage à conserver confidentielles les informations dont elle aurait connaissance dans le cadre du présent contrat, pendant toute sa durée et <strong>2 ans</strong> après son terme.</p>`)}
+    ${A(10, "Données personnelles & RGPD", `<p>Le Prestataire s'engage à respecter le RGPD. Les données collectées via le site sont traitées sous la responsabilité du <strong>Client</strong> (responsable de traitement) ; le Prestataire intervient comme sous-traitant et met en œuvre les mesures de sécurité appropriées (HTTPS, hébergement sécurisé, sauvegardes).</p>`)}
+    ${A(11, "Hébergement et maintenance", art11)}
+    ${A(12, "Responsabilité", `<p>Le Prestataire est tenu d'une obligation de moyens. Sa responsabilité ne pourra excéder le montant total des sommes versées par le Client au titre du contrat. Il ne peut être tenu responsable des dommages indirects (perte d'exploitation, de chiffre d'affaires, atteinte à l'image).</p>`)}
+    ${A(13, "Résiliation", `<p><strong>Pour faute :</strong> en cas de manquement grave, l'autre Partie pourra résilier de plein droit après mise en demeure restée sans effet pendant <strong>15 jours</strong>.</p><p>En cas de résiliation avant livraison, l'acompte versé reste acquis au Prestataire à titre de dédommagement pour le travail réalisé.</p>`)}
+    ${A(14, "Force majeure", `<p>Aucune des Parties ne pourra être tenue responsable de l'inexécution de ses obligations en cas de force majeure au sens de l'article 1218 du Code civil.</p>`)}
+    ${A(15, "Droit applicable & juridiction", `<p>Le présent contrat est soumis au <strong>droit français</strong>. En cas de litige, les Parties rechercheront une solution amiable. À défaut, le litige sera porté devant les tribunaux compétents du ressort de <strong>Toulon (83)</strong>, sauf disposition légale impérative contraire (notamment lorsque le Client est un consommateur).</p>`)}
     <div class="signatures">
-      <div class="sig-box"><strong>Le Prestataire</strong>${esc(s.emetteur.nom)}<br>${esc(s.emetteur.entreprise)}<div class="sig-line"></div><div class="sig-mention">Bon pour accord</div><div class="sig-place-date">Fait à Cogolin, le ___/___/______</div></div>
-      <div class="sig-box"><strong>Le Client</strong>${esc(doc.clientSnapshot.nom)}<div class="sig-line"></div><div class="sig-mention">Mention manuscrite : « Lu et approuvé »</div><div class="sig-place-date">Fait à __________, le ___/___/______</div></div>
+      <div class="sig-box"><strong>Le Prestataire</strong>${esc(s.emetteur.nom)}<br>${esc(s.emetteur.entreprise)}<div class="sig-line"></div><div class="sig-mention">Bon pour accord</div><div class="sig-place-date">Fait à Cogolin, le ${dateSig}</div></div>
+      <div class="sig-box"><strong>Le Client</strong>${esc(doc.clientSnapshot.nom)}<div class="sig-line"></div><div class="sig-mention">Mention manuscrite : « Lu et approuvé »</div><div class="sig-place-date">Fait à ${lieuCl}, le ${dateSig}</div></div>
     </div>
-    ${footerHTML(s, "Contrat établi en deux (2) exemplaires originaux, un pour chacune des Parties.")}
+    ${footerHTML(s, "Contrat établi en deux (2) exemplaires originaux, un pour chacune des Parties.", doc)}
   </div>`;
 }
 
-// ---------- Aiguillage + document complet autonome ----------
+// ---------- Aiguillage + document autonome ----------
 function renderDocBody(doc, s) {
   if (doc.type === "devis") return renderDevis(doc, s);
   if (doc.type === "facture") return renderFacture(doc, s);
   return renderContrat(doc, s);
 }
 
-// Document HTML complet et autonome (pour aperçu / impression / téléchargement)
 function renderFullDocument(doc, s) {
   const titres = { devis: "Devis", facture: "Facture", contrat: "Contrat" };
   return `<!DOCTYPE html>
