@@ -1,0 +1,16 @@
+# ⚠️ Données sensibles — NE JAMAIS publier
+JustificatifDéclarationUrsaaf/
+*.pdf
+
+# Config locale (Claude Code, éditeurs, serveur de dev)
+.claude/
+.vscode/
+.idea/
+
+# Sauvegardes de données exportées depuis l'app
+zdev-sauvegarde-*.json
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+desktop.ini
